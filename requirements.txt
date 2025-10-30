@@ -1,0 +1,7 @@
+streamlit
+numpy
+yfinance
+requests
+pandas
+web3
+ccxt
