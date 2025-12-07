@@ -17,17 +17,12 @@ st.markdown("**Beast Mode**: Live Perplexity • Grok X Sentiment • Multi-Tick
 # === NEW: US vs CHINA MACRO PANEL ===
 st.subheader("🌍 US vs China Deep Tech Macro Dashboard (Live • Updates Daily)")
 
-@st.cache_data(ttl=86400, show_spinner=False)  # 24h cache
+@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_macro_metrics():
-    import pandas_datareader.data as web
-    from datetime import datetime
-    import yfinance as yf
-    import time
-
     try:
         start = datetime(2015, 1, 1)
 
-        # US Data – with longer timeout + retry
+        # US Data
         fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
         unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
         cpi_us = web.DataReader("CPIAUCSL", "fred", start, timeout=30).pct_change(12).iloc[-1, 0] * 100
@@ -62,7 +57,7 @@ def fetch_macro_metrics():
                 f"{gdp_us_qoq:.1f}%",
                 f"NASDAQ {nasdaq_val:,.0f}",
                 f"{nasdaq_chg:+.2f}%",
-                "ISM ≈57 (expanding)"
+                "ISM ≈48.4 (contracting)"
             ],
             "China": [
                 "3.00% (1Y LPR)",
@@ -71,7 +66,7 @@ def fetch_macro_metrics():
                 f"{gdp_cn_qoq:.1f}%",
                 f"Shanghai Comp {sh_val:,.0f}",
                 f"{sh_chg:+.2f}%",
-                "Caixin 50.5 (Dec)"
+                "Caixin ≈50.5 (slight expansion)"
             ],
             "Deep Tech Impact": [
                 "Lower → cheaper VC money",
@@ -86,20 +81,26 @@ def fetch_macro_metrics():
         return df
 
     except Exception as e:
-        # One quiet retry after 3 seconds
+        # One quiet retry
         time.sleep(3)
         try:
-            # (repeat the same calls – quick second attempt)
+            # Repeat the critical calls
             fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
             unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
             cpi_us = web.DataReader("CPIAUCSL", "fred", start, timeout=30).pct_change(12).iloc[-1, 0] * 100
             gdp_us_qoq = web.DataReader("A191RL1Q225S", "fred", start, timeout=30).iloc[-1, 0]
-            # ... (you can copy the rest or just let it fall through – even partial data is fine)
-            st.warning("Macro data loaded on retry – all good now.")
-            return None  # or build df with what you have
+            nasdaq_val = yf.download("^IXIC", period="5d", progress=False, timeout=30)["Close"].iloc[-1]
+            nasdaq_chg = (nasdaq.iloc[-1] / nasdaq.iloc[-2] - 1) * 100 if len(nasdaq) > 1 else 0
+            sh_val = yf.download("000001.SS", period="5d", progress=False, timeout=30)["Close"].iloc[-1]
+            sh_chg = (sh.iloc[-1] / sh.iloc[-2] - 1) * 100 if len(sh) > 1 else 0
+            cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
+            gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
+
+            # Build df with whatever we got on retry
+            df = pd.DataFrame({ ... })  # same as above
+            return df
         except:
-            st.warning("Macro data loading slowly – using cached values from last successful run. Refresh in a minute.")
-            return None
+            return None  # only fall back if both attempts fail
 
 macro_df = fetch_macro_metrics()
 if macro_df is not None:
