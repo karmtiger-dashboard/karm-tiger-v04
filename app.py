@@ -6,6 +6,7 @@ import requests
 import pandas as pd
 from web3 import Web3
 import ccxt
+import time
 from datetime import datetime
 import pandas_datareader.data as web  # <-- NEW IMPORT
 
@@ -19,7 +20,6 @@ st.subheader("🌍 US vs China Deep Tech Macro Dashboard (Live • Updates Daily
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_macro_metrics():
-    import time  # <-- Moved to the top so it's always available
 
     try:
         start = datetime(2015, 1, 1)
