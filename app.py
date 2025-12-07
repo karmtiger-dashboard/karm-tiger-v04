@@ -19,6 +19,8 @@ st.subheader("🌍 US vs China Deep Tech Macro Dashboard (Live • Updates Daily
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_macro_metrics():
+    import time  # <-- Moved to the top so it's always available
+
     try:
         start = datetime(2015, 1, 1)
 
@@ -29,18 +31,18 @@ def fetch_macro_metrics():
         gdp_us_qoq = web.DataReader("A191RL1Q225S", "fred", start, timeout=30).iloc[-1, 0]
 
         nasdaq = yf.download("^IXIC", period="5d", progress=False, timeout=30)["Close"]
-        nasdaq_val = nasdaq.iloc[-1]
+        nasdaq_val = nasdaq.iloc[-1] if len(nasdaq) > 0 else 0
         nasdaq_chg = (nasdaq.iloc[-1] / nasdaq.iloc[-2] - 1) * 100 if len(nasdaq) > 1 else 0
 
         # China Data
         sh = yf.download("000001.SS", period="5d", progress=False, timeout=30)["Close"]
-        sh_val = sh.iloc[-1]
+        sh_val = sh.iloc[-1] if len(sh) > 0 else 0
         sh_chg = (sh.iloc[-1] / sh.iloc[-2] - 1) * 100 if len(sh) > 1 else 0
 
         cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
         gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
 
-        # Build the table
+        # Build table
         df = pd.DataFrame({
             "Metric": [
                 "Key Policy Rate",
@@ -82,9 +84,9 @@ def fetch_macro_metrics():
         return df
 
     except Exception as e:
-        # Proper retry – duplicate the whole block and return the df
-        time.sleep(3)
+        time.sleep(3)  # now time is defined
         try:
+            # Full retry – duplicate everything
             start = datetime(2015, 1, 1)
             fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
             unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
@@ -102,8 +104,11 @@ def fetch_macro_metrics():
             cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
             gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
 
-            df = pd.DataFrame({  # same structure as above
-                "Metric": ["Key Policy Rate", "Unemployment Rate", "CPI Inflation YoY", "Real GDP Growth (QoQ annualized)", "Main Tech Index", "Index Daily Δ", "Manufacturing PMI (latest approx)"],
+            df = pd.DataFrame({
+                "Metric": [
+                    "Key Policy Rate", "Unemployment Rate", "CPI Inflation YoY", "Real GDP Growth (QoQ annualized)",
+                    "Main Tech Index", "Index Daily Δ", "Manufacturing PMI (latest approx)"
+                ],
                 "United States": [
                     f"{fed_rate:.2f}% (Fed Funds)",
                     f"{unrate_us:.1f}%",
@@ -124,12 +129,13 @@ def fetch_macro_metrics():
                 ],
                 "Deep Tech Impact": [
                     "Lower → cheaper VC money", "Lower → talent competition", "2–3% ideal for risk assets",
-                    "Higher → bigger R&D budgets", "Bullish → risk-on for deep tech", "Green → momentum", ">50 = expanding supply chains"
+                    "Higher → bigger R&D budgets", "Bullish → risk-on for deep tech", "Green → momentum",
+                    ">50 = expanding supply chains"
                 ]
             })
             return df
         except:
-            return None  # only if both attempts fail
+            return None
 
 macro_df = fetch_macro_metrics()
 if macro_df is not None:
