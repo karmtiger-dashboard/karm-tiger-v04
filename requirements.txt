@@ -3,6 +3,5 @@ numpy
 yfinance
 requests
 pandas
-web3
 ccxt
 pandas-datareader
