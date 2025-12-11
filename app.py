@@ -17,33 +17,14 @@ st.markdown("**Beast Mode**: Live Perplexity • Grok X Sentiment • Multi-Tick
 
 # === NEW: US vs CHINA MACRO PANEL ===
 st.subheader("🌍 US vs China Deep Tech Macro Dashboard (Live • Updates Daily)")
-
 @st.cache_data(ttl=86400, show_spinner=False)
 def fetch_macro_metrics():
+    import time  # already at top, but safe
 
-    try:
-        start = datetime(2015, 1, 1)
+    start = datetime(2015, 1, 1)
 
-        # US Data
-        fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
-        unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
-        cpi_us = web.DataReader("CPIAUCSL", "fred", start, timeout=30).pct_change(12).iloc[-1, 0] * 100
-        gdp_us_qoq = web.DataReader("A191RL1Q225S", "fred", start, timeout=30).iloc[-1, 0]
-
-        nasdaq = yf.download("^IXIC", period="5d", progress=False, timeout=30)["Close"]
-        nasdaq_val = nasdaq.iloc[-1] if len(nasdaq) > 0 else 0
-        nasdaq_chg = (nasdaq.iloc[-1] / nasdaq.iloc[-2] - 1) * 100 if len(nasdaq) > 1 else 0
-
-        # China Data
-        sh = yf.download("000001.SS", period="5d", progress=False, timeout=30)["Close"]
-        sh_val = sh.iloc[-1] if len(sh) > 0 else 0
-        sh_chg = (sh.iloc[-1] / sh.iloc[-2] - 1) * 100 if len(sh) > 1 else 0
-
-        cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
-        gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
-
-        # Build table
-        df = pd.DataFrame({
+    def build_df(fed_rate, unrate_us, cpi_us, gdp_us_qoq, nasdaq_val, nasdaq_chg, sh_val, sh_chg, cpi_cn_yoy, gdp_cn_qoq):
+        return pd.DataFrame({
             "Metric": [
                 "Key Policy Rate",
                 "Unemployment Rate",
@@ -81,13 +62,31 @@ def fetch_macro_metrics():
                 ">50 = expanding supply chains"
             ]
         })
-        return df
+
+    try:
+        # First attempt
+        fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
+        unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
+        cpi_us = web.DataReader("CPIAUCSL", "fred", start, timeout=30).pct_change(12).iloc[-1, 0] * 100
+        gdp_us_qoq = web.DataReader("A191RL1Q225S", "fred", start, timeout=30).iloc[-1, 0]
+
+        nasdaq = yf.download("^IXIC", period="5d", progress=False, timeout=30)["Close"]
+        nasdaq_val = nasdaq.iloc[-1] if len(nasdaq) > 0 else 0
+        nasdaq_chg = (nasdaq.iloc[-1] / nasdaq.iloc[-2] - 1) * 100 if len(nasdaq) > 1 else 0
+
+        sh = yf.download("000001.SS", period="5d", progress=False, timeout=30)["Close"]
+        sh_val = sh.iloc[-1] if len(sh) > 0 else 0
+        sh_chg = (sh.iloc[-1] / sh.iloc[-2] - 1) * 100 if len(sh) > 1 else 0
+
+        cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
+        gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
+
+        return build_df(fed_rate, unrate_us, cpi_us, gdp_us_qoq, nasdaq_val, nasdaq_chg, sh_val, sh_chg, cpi_cn_yoy, gdp_cn_qoq)
 
     except Exception as e:
-        time.sleep(3)  # now time is defined
+        # Retry once
+        time.sleep(3)
         try:
-            # Full retry – duplicate everything
-            start = datetime(2015, 1, 1)
             fed_rate = web.DataReader("FEDFUNDS", "fred", start, timeout=30).iloc[-1, 0]
             unrate_us = web.DataReader("UNRATE", "fred", start, timeout=30).iloc[-1, 0]
             cpi_us = web.DataReader("CPIAUCSL", "fred", start, timeout=30).pct_change(12).iloc[-1, 0] * 100
@@ -104,37 +103,11 @@ def fetch_macro_metrics():
             cpi_cn_yoy = web.DataReader("CHNCPIALLMINMEI", "fred", start, timeout=30).iloc[-1, 0]
             gdp_cn_qoq = web.DataReader("CHNGDPRQDSMEI", "fred", start, timeout=30).iloc[-1, 0]
 
-            df = pd.DataFrame({
-                "Metric": [
-                    "Key Policy Rate", "Unemployment Rate", "CPI Inflation YoY", "Real GDP Growth (QoQ annualized)",
-                    "Main Tech Index", "Index Daily Δ", "Manufacturing PMI (latest approx)"
-                ],
-                "United States": [
-                    f"{fed_rate:.2f}% (Fed Funds)",
-                    f"{unrate_us:.1f}%",
-                    f"{cpi_us:.2f}%",
-                    f"{gdp_us_qoq:.1f}%",
-                    f"NASDAQ {nasdaq_val:,.0f}",
-                    f"{nasdaq_chg:+.2f}%",
-                    "ISM 48.2 (contracting)"
-                ],
-                "China": [
-                    "3.00% (1Y LPR)",
-                    "5.1% (urban surveyed)",
-                    f"{cpi_cn_yoy:.2f}%",
-                    f"{gdp_cn_qoq:.1f}%",
-                    f"Shanghai Comp {sh_val:,.0f}",
-                    f"{sh_chg:+.2f}%",
-                    "Caixin 50.5 (slight expansion)"
-                ],
-                "Deep Tech Impact": [
-                    "Lower → cheaper VC money", "Lower → talent competition", "2–3% ideal for risk assets",
-                    "Higher → bigger R&D budgets", "Bullish → risk-on for deep tech", "Green → momentum",
-                    ">50 = expanding supply chains"
-                ]
-            })
-            return df
-        except:
+            # IMPORTANT: return the df on successful retry
+            return build_df(fed_rate, unrate_us, cpi_us, gdp_us_qoq, nasdaq_val, nasdaq_chg, sh_val, sh_chg, cpi_cn_yoy, gdp_cn_qoq)
+
+        except Exception as e2:
+            # Only here do we give up
             return None
 
 macro_df = fetch_macro_metrics()
